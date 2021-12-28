@@ -1,3 +1,6 @@
 [submodule "libs/tether"]
 	path = libs/tether
 	url = git@github.com:RandomStudio/tether.git
+[submodule "libs/psn-cpp"]
+	path = libs/psn-cpp
+	url = git@github.com:RandomStudio/psn-cpp.git
