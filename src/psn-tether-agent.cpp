@@ -4,6 +4,7 @@
 #include <msgpack.hpp>
 
 
+
 struct HelloData {
 	std::string agentType;
   std::string agentID;
