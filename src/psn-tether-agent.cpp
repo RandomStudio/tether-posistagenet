@@ -1,3 +1,6 @@
+#include <psn_lib.hpp>
+#include "UdpServerSocket.hpp"
+
 #include <iostream>
 
 #include <string.h>
@@ -7,20 +10,17 @@
 
 #include "tether_agent.h"
 #include <msgpack.hpp>
-#include <psn_lib.hpp>
-#include "UdpServerSocket.hpp"
 
-// struct HelloData {
-// 	std::string agentType;
-//   std::string agentID;
-// 	MSGPACK_DEFINE_MAP(agentType, agentID);
-// };
+struct Tracker2D {
+  uint16_t id;
+  int x;
+  int y;
+  MSGPACK_DEFINE_MAP(id, x, y);
+};
 
 const short           PORT         = 8888;
 static const short    BUFLEN       = 1024;
 static const uint32_t TIMEOUT_MSEC = 1000;
-
-using namespace std; 
 
 int main() {
 
@@ -29,25 +29,13 @@ int main() {
   const string agentType = "psn-bridge";
   const string agentID = "test-psn-bridge";
 
-  // cout << "Tether PSN Agent starting..." << endl;
+  cout << "Tether PSN Agent starting..." << endl;
 
-  // TetherAgent agent (agentType, agentID);
+  TetherAgent agent (agentType, agentID);
 
-  // agent.connect("tcp", "127.0.0.1", 1883);
+  agent.connect("tcp", "127.0.0.1", 1883);
 
-  // Output* outputPlug = agent.createOutput("hello");
-
-  // HelloData h {
-  //   agentType, agentID
-  // };
-
-  // // Make a buffer, pack data using messagepack...
-  // std::stringstream buffer;
-  // msgpack::pack(buffer, h);
-  // const std::string& tmp = buffer.str();   
-  // const char* payload = tmp.c_str();
-
-  // outputPlug->publish(payload);
+  Output* outputPlug = agent.createOutput("psn");
 
   // UDP server (for receiving) and PSN Decoder
   UdpServerSocket server(PORT, TIMEOUT_MSEC);
@@ -102,48 +90,64 @@ int main() {
                                                           tracker.get_pos().y << ", " <<
                                                           tracker.get_pos().z << std::endl ;
 
-                        if ( tracker.is_speed_set() )
-                            ::std::cout << "    speed: " << tracker.get_speed().x << ", " << 
-                                                            tracker.get_speed().y << ", " <<
-                                                            tracker.get_speed().z << std::endl ;
+                        // Tracker t {
+                        //   tracker.get_id(),
+                        //   tracker.get_pos().x,
+                        //   tracker.get_pos().y
+                        // };
+                        Tracker2D t;
+                        t.id = tracker.get_id();
+                        t.x = 10;
+                        t.y = 11;
 
-                        if ( tracker.is_ori_set() )
-                            ::std::cout << "    ori: " << tracker.get_ori().x << ", " << 
-                                                          tracker.get_ori().y << ", " <<
-                                                          tracker.get_ori().z << std::endl ;
+                        // Make a buffer, pack data using messagepack...
+                        std::stringstream buffer;
+                        msgpack::pack(buffer, t);
+                        const std::string& tmp = buffer.str();   
+                        const char* payload = tmp.c_str();
 
-                        if ( tracker.is_status_set() )
-                            ::std::cout << "    status: " << tracker.get_status() << std::endl ;
+                        outputPlug->publish(payload);
 
-                        if ( tracker.is_accel_set() )
-                            ::std::cout << "    accel: " << tracker.get_accel().x << ", " << 
-                                                            tracker.get_accel().y << ", " <<
-                                                            tracker.get_accel().z << std::endl ;
+                        // if ( tracker.is_speed_set() )
+                        //     ::std::cout << "    speed: " << tracker.get_speed().x << ", " << 
+                        //                                     tracker.get_speed().y << ", " <<
+                        //                                     tracker.get_speed().z << std::endl ;
 
-                        if ( tracker.is_target_pos_set() )
-                            ::std::cout << "    target pos: " << tracker.get_target_pos().x << ", " << 
-                                                                 tracker.get_target_pos().y << ", " <<
-                                                                 tracker.get_target_pos().z << std::endl ;
+                        // if ( tracker.is_ori_set() )
+                        //     ::std::cout << "    ori: " << tracker.get_ori().x << ", " << 
+                        //                                   tracker.get_ori().y << ", " <<
+                        //                                   tracker.get_ori().z << std::endl ;
 
-                        if ( tracker.is_timestamp_set() )
-                            ::std::cout << "    timestamp: " << tracker.get_timestamp() << std::endl ;
+                        // if ( tracker.is_status_set() )
+                        //     ::std::cout << "    status: " << tracker.get_status() << std::endl ;
+
+                        // if ( tracker.is_accel_set() )
+                        //     ::std::cout << "    accel: " << tracker.get_accel().x << ", " << 
+                        //                                     tracker.get_accel().y << ", " <<
+                        //                                     tracker.get_accel().z << std::endl ;
+
+                        // if ( tracker.is_target_pos_set() )
+                        //     ::std::cout << "    target pos: " << tracker.get_target_pos().x << ", " << 
+                        //                                          tracker.get_target_pos().y << ", " <<
+                        //                                          tracker.get_target_pos().z << std::endl ;
+
+                        // if ( tracker.is_timestamp_set() )
+                        //     ::std::cout << "    timestamp: " << tracker.get_timestamp() << std::endl ;
                     }
 
                     ::std::cout << "-----------------------------------------------" << ::std::endl ;
                 //} // skip
 
-        }
-
-        else {
-            printf("\n");
+        } else {
+            printf(" nothing received \n");
             // sleep(1);
             std::this_thread::sleep_for(std::chrono::milliseconds(1) );
         }
 
     }
 
-  // cout << "Disconnecting Tether Agent..." << endl;
-  // agent.disconnect();
+  cout << "Disconnecting Tether Agent..." << endl;
+  agent.disconnect();
 
   return 0;
 }
