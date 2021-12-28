@@ -1,0 +1,3 @@
+[submodule "libs/tether"]
+	path = libs/tether
+	url = git@github.com:RandomStudio/tether.git
