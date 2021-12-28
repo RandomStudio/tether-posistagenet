@@ -4,3 +4,6 @@
 [submodule "libs/psn-cpp"]
 	path = libs/psn-cpp
 	url = git@github.com:RandomStudio/psn-cpp.git
+[submodule "libs/CppSockets"]
+	path = libs/CppSockets
+	url = https://github.com/simondlevy/CppSockets.git
