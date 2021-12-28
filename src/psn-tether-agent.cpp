@@ -13,8 +13,9 @@
 
 struct Tracker2D {
   uint16_t id;
-  int x;
-  int y;
+  // TODO: these are not coming out OK other side - see https://github.com/msgpack/msgpack-c/issues/521 ?
+  float x;
+  float y;
   MSGPACK_DEFINE_MAP(id, x, y);
 };
 
