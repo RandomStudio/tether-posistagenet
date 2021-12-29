@@ -12,11 +12,11 @@
 #include <msgpack.hpp>
 
 struct Tracker2D {
-  uint16_t id;
-  // TODO: these are not coming out OK other side - see https://github.com/msgpack/msgpack-c/issues/521 ?
+  int id;
   float x;
   float y;
-  MSGPACK_DEFINE_MAP(id, x, y);
+  float z;
+  MSGPACK_DEFINE_MAP(id, x, y, z);
 };
 
 const short           PORT         = 8888;
@@ -27,10 +27,10 @@ int main() {
 
   char buf[BUFLEN];
 
-  const string agentType = "psn-bridge";
-  const string agentID = "test-psn-bridge";
+  const std::string agentType = "psn-bridge";
+  const std::string agentID = "test-psn-bridge";
 
-  cout << "Tether PSN Agent starting..." << endl;
+  std::cout << "Tether PSN Agent starting..." << std::endl;
 
   TetherAgent agent (agentType, agentID);
 
@@ -49,8 +49,8 @@ int main() {
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1) );
 
-        printf("Waiting for data...");
-        fflush(stdout);
+        // printf("Waiting for data...");
+        // fflush(stdout);
 
         memset(buf, 0, BUFLEN);
 
@@ -91,23 +91,21 @@ int main() {
                                                           tracker.get_pos().y << ", " <<
                                                           tracker.get_pos().z << std::endl ;
 
-                        // Tracker t {
-                        //   tracker.get_id(),
-                        //   tracker.get_pos().x,
-                        //   tracker.get_pos().y
-                        // };
-                        Tracker2D t;
-                        t.id = tracker.get_id();
-                        t.x = 10;
-                        t.y = 11;
+                        // double x = static_cast<double>(tracker.get_pos().x);
+
+                        Tracker2D t {
+                          tracker.get_id(),
+                          tracker.get_pos().x,
+                          tracker.get_pos().y,
+                          tracker.get_pos().z
+                        };
+          
 
                         // Make a buffer, pack data using messagepack...
                         std::stringstream buffer;
                         msgpack::pack(buffer, t);
-                        const std::string& tmp = buffer.str();   
-                        const char* payload = tmp.c_str();
 
-                        outputPlug->publish(payload);
+                        outputPlug->publish(buffer.str());
 
                         // if ( tracker.is_speed_set() )
                         //     ::std::cout << "    speed: " << tracker.get_speed().x << ", " << 
@@ -140,14 +138,14 @@ int main() {
                 //} // skip
 
         } else {
-            printf(" nothing received \n");
+            // printf(" nothing received \n");
             // sleep(1);
             std::this_thread::sleep_for(std::chrono::milliseconds(1) );
         }
 
     }
 
-  cout << "Disconnecting Tether Agent..." << endl;
+  std::cout << "Disconnecting Tether Agent..." << std::endl;
   agent.disconnect();
 
   return 0;
