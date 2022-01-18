@@ -6,12 +6,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <chrono>
+#include <sys/time.h>
 #include <thread>
 
 #include "tether_agent.h"
 #include <msgpack.hpp>
 
-struct Tracker2D {
+struct TrackedObject {
   int id;
   float x;
   float y;
@@ -19,6 +20,13 @@ struct Tracker2D {
   MSGPACK_DEFINE_MAP(id, x, y, z);
 };
 
+struct ProcessedTrackedObject {
+  int id;
+  float x;
+  float y;
+  float z;
+  unsigned long lastTimeTracked;
+};
 
 const short           DEFAULT_PSN_PORT  = 8888;
 const std::string     DEFAULT_TETHER_HOST = "127.0.0.1";
@@ -27,6 +35,11 @@ static const short    BUFLEN       = 1024;
 static const uint32_t TIMEOUT_MSEC = 1000;
 const std::string DEFAULT_AGENT_ID = "test-psn-bridge";
 const std::string DEFAULT_AGENT_TYPE = "psn-bridge";
+
+using std::cout; using std::endl;
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::system_clock;
 
 int main(int argc, char *argv[]) {
 
@@ -46,8 +59,11 @@ int main(int argc, char *argv[]) {
     tetherHost = DEFAULT_TETHER_HOST;
   }
 
-  std::cout << "Connect type " << DEFAULT_AGENT_TYPE << " with agentId " << agentId << " to MQTT broker at " << tetherHost << ":" << DEFAULT_TETHER_PORT << std::endl;
 
+  auto millisec_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  cout << "ms since epoch: " << millisec_since_epoch << endl;
+
+  std::cout << "Connect type " << DEFAULT_AGENT_TYPE << " with agentId " << agentId << " to MQTT broker at " << tetherHost << ":" << DEFAULT_TETHER_PORT << std::endl;
   TetherAgent agent (DEFAULT_AGENT_TYPE, agentId);
 
   agent.connect("tcp", tetherHost, DEFAULT_TETHER_PORT);
@@ -109,7 +125,7 @@ int main(int argc, char *argv[]) {
 
                         // double x = static_cast<double>(tracker.get_pos().x);
 
-                        Tracker2D t {
+                        TrackedObject t {
                           tracker.get_id(),
                           tracker.get_pos().x,
                           tracker.get_pos().y,
