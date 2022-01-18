@@ -16,16 +16,14 @@ struct TrackedObject {
   int id;
   float x;
   float y;
-  float z;
-  MSGPACK_DEFINE_MAP(id, x, y, z);
+  MSGPACK_DEFINE_MAP(id, x, y);
 };
 
 struct ProcessedTrackedObject {
   int id;
   float x;
   float y;
-  float z;
-  unsigned long lastTimeTracked;
+  int64_t lastTimeTracked;
 };
 
 const short           DEFAULT_PSN_PORT  = 8888;
@@ -44,12 +42,16 @@ using std::chrono::duration_cast;
 using std::chrono::milliseconds;
 using std::chrono::system_clock;
 
+float getDistance (float x1, float y1, float x2, float y2) {
+  return std::sqrtf( std::pow((x2 - x1),2) + std::pow((y2 - y1),2) );
+}
+
 int main(int argc, char *argv[]) {
 
   std::cout << "Tether PSN Agent starting..." << std::endl;
 
   char buf[BUFLEN];
-  std::vector<ProcessedTrackedObject> processedObjects;
+  std::vector<ProcessedTrackedObject*> processedObjects;
 
   std::string agentId;
   std::string tetherHost;
@@ -83,7 +85,8 @@ int main(int argc, char *argv[]) {
 
   agent.connect("tcp", tetherHost, DEFAULT_TETHER_PORT);
 
-  Output* outputPlug = agent.createOutput("psn");
+  Output* rawTrackedObjectsPlug = agent.createOutput("trackedObjects");
+  Output* processedTrackedObjectsPlug = agent.createOutput("processedTrackedObjects");
 
   // UDP server (for receiving) and PSN Decoder
   UdpServerSocket server(DEFAULT_PSN_PORT, TIMEOUT_MSEC);
@@ -144,15 +147,84 @@ int main(int argc, char *argv[]) {
                           tracker.get_id(),
                           tracker.get_pos().x,
                           tracker.get_pos().y,
-                          tracker.get_pos().z
                         };
           
 
-                        // Make a buffer, pack data using messagepack...
-                        std::stringstream buffer;
-                        msgpack::pack(buffer, t);
+                        // Make a buffer, pack data using messagepack, send via Tether Output Plug...
+                        {
+                          std::stringstream buffer;
+                          msgpack::pack(buffer, t);
+                          rawTrackedObjectsPlug->publish(buffer.str());
+                        }
 
-                        outputPlug->publish(buffer.str());
+                        if (shouldProcess) {
+                          int64_t timestamp = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  
+                          if (processedObjects.size() == 0) {
+                            cout << "Size 0; push new tracked object...";
+                            // Zero objects being tracked, always add
+                            ProcessedTrackedObject * obj = new ProcessedTrackedObject {
+                              static_cast<int>(processedObjects.size()),
+                              tracker.get_pos().x,
+                              tracker.get_pos().y,
+                              timestamp
+                            };
+                            processedObjects.push_back(obj);
+                            cout << "OK" << endl;
+                          } else {
+                            // Check if this tracking point falls within radius of known
+                            // processed tracked objects - if so, update them
+                            ProcessedTrackedObject * match = nullptr;
+
+                            for (auto obj: processedObjects) {
+                              float distance = getDistance(t.x, t.y, obj->x, obj->y);
+                              if (distance <= mergeRadius) {
+                                cout << "Match found" << endl;
+                                match = obj;
+                              }
+                            }
+                            
+                            if (match == nullptr) {
+                              // No match, create new processedTrackedObject
+
+                              cout << "No match for tracker, create new processed tracked object...";
+                              ProcessedTrackedObject * obj = new ProcessedTrackedObject{
+                                static_cast<int>(processedObjects.size()),
+                                tracker.get_pos().x,
+                                tracker.get_pos().y,
+                                timestamp
+                              };
+                              processedObjects.push_back(obj);
+                              match = obj;
+                              cout << "OK" << endl;
+                              cout << "New list size: " << processedObjects.size() << endl;
+                            } else {
+                              cout << "Had a match; update...";
+                              match->lastTimeTracked = timestamp;
+                              match->x = t.x;
+                              match->y = t.y;
+                              cout << "OK" << endl;
+                            }
+                            if (match != nullptr) {
+                              // If we got a match (or created one),
+                              // send it via Tether Output Plug
+
+                              cout << "Send processed tracked object via Tether" << endl;
+
+                              TrackedObject obj {
+                                  match->id,
+                                  match->x,
+                                  match->y
+                              };
+
+                              {
+                                std::stringstream buffer;
+                                msgpack::pack(buffer, obj);
+                                processedTrackedObjectsPlug->publish(buffer.str());
+                              }
+                            }
+                          }
+                        }
 
                         // if ( tracker.is_speed_set() )
                         //     ::std::cout << "    speed: " << tracker.get_speed().x << ", " << 
