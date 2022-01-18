@@ -36,6 +36,9 @@ static const uint32_t TIMEOUT_MSEC = 1000;
 const std::string DEFAULT_AGENT_ID = "test-psn-bridge";
 const std::string DEFAULT_AGENT_TYPE = "psn-bridge";
 
+bool PROCESS_OBJECTS = false;
+const float DEFAULT_MERGE_RADIUS = 10;
+
 using std::cout; using std::endl;
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
@@ -46,24 +49,36 @@ int main(int argc, char *argv[]) {
   std::cout << "Tether PSN Agent starting..." << std::endl;
 
   char buf[BUFLEN];
+  std::vector<ProcessedTrackedObject> processedObjects;
 
   std::string agentId;
   std::string tetherHost;
+  bool shouldProcess;
+  float mergeRadius;
 
-  //Args: AGENT_ID TETHER_HOST
+  //Args: AGENT_ID TETHER_HOST SHOULD_PROCESS ("true"/"false") MERGE_RADIUS
   if (argc > 1) { // argv[0] is name of program
+    if (argc != 5) {
+      cout << "WARNING: unexpected number of arguments: " << argc << endl;
+    }
     agentId = argv[1];
     tetherHost = argv[2];
+    shouldProcess = std::strcmp(argv[3], "true") == 0 ? true : false;
+    mergeRadius = std::atof(argv[4]);
   } else {
     agentId = DEFAULT_AGENT_ID;
     tetherHost = DEFAULT_TETHER_HOST;
+    shouldProcess = false;
+    mergeRadius = DEFAULT_MERGE_RADIUS;
   }
 
 
-  auto millisec_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-  cout << "ms since epoch: " << millisec_since_epoch << endl;
-
   std::cout << "Connect type " << DEFAULT_AGENT_TYPE << " with agentId " << agentId << " to MQTT broker at " << tetherHost << ":" << DEFAULT_TETHER_PORT << std::endl;
+  if (shouldProcess) {
+    cout << "Will send processed tracked objects with merge radius = " << mergeRadius << endl;
+  } else {
+    cout << "Will NOT send processed tracked objects (disabled)" << endl;
+  }
   TetherAgent agent (DEFAULT_AGENT_TYPE, agentId);
 
   agent.connect("tcp", tetherHost, DEFAULT_TETHER_PORT);
