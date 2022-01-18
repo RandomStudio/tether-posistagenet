@@ -19,27 +19,43 @@ struct Tracker2D {
   MSGPACK_DEFINE_MAP(id, x, y, z);
 };
 
-const short           PORT         = 8888;
+
+const short           DEFAULT_PSN_PORT  = 8888;
+const std::string     DEFAULT_TETHER_HOST = "127.0.0.1";
+const short           DEFAULT_TETHER_PORT = 1883;
 static const short    BUFLEN       = 1024;
 static const uint32_t TIMEOUT_MSEC = 1000;
+const std::string DEFAULT_AGENT_ID = "test-psn-bridge";
+const std::string DEFAULT_AGENT_TYPE = "psn-bridge";
 
-int main() {
-
-  char buf[BUFLEN];
-
-  const std::string agentType = "psn-bridge";
-  const std::string agentID = "test-psn-bridge";
+int main(int argc, char *argv[]) {
 
   std::cout << "Tether PSN Agent starting..." << std::endl;
 
-  TetherAgent agent (agentType, agentID);
+  char buf[BUFLEN];
 
-  agent.connect("tcp", "127.0.0.1", 1883);
+  std::string agentId;
+  std::string tetherHost;
+
+  //Args: AGENT_ID TETHER_HOST
+  if (argc > 1) { // argv[0] is name of program
+    agentId = argv[1];
+    tetherHost = argv[2];
+  } else {
+    agentId = DEFAULT_AGENT_ID;
+    tetherHost = DEFAULT_TETHER_HOST;
+  }
+
+  std::cout << "Connect type " << DEFAULT_AGENT_TYPE << " with agentId " << agentId << " to MQTT broker at " << tetherHost << ":" << DEFAULT_TETHER_PORT << std::endl;
+
+  TetherAgent agent (DEFAULT_AGENT_TYPE, agentId);
+
+  agent.connect("tcp", tetherHost, DEFAULT_TETHER_PORT);
 
   Output* outputPlug = agent.createOutput("psn");
 
   // UDP server (for receiving) and PSN Decoder
-  UdpServerSocket server(PORT, TIMEOUT_MSEC);
+  UdpServerSocket server(DEFAULT_PSN_PORT, TIMEOUT_MSEC);
   ::psn::psn_decoder psn_decoder;
   uint8_t last_frame_id = 0 ;
   int skip_cout = 0 ;
