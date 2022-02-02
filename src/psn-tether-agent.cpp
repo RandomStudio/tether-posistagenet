@@ -1,5 +1,5 @@
 #include <psn_lib.hpp>
-#include "UdpServerSocket.hpp"
+#include <kissnet.hpp>
 
 #include <iostream>
 
@@ -26,7 +26,8 @@ struct ProcessedTrackedObject {
   int64_t lastTimeTracked;
 };
 
-const short           DEFAULT_PSN_PORT  = 8888;
+const int           DEFAULT_PSN_PORT  = 56565;
+const std::string     DEFAULT_PSN_MULTICAST_GROUP = "236.10.10.10";
 const std::string     DEFAULT_TETHER_HOST = "127.0.0.1";
 const short           DEFAULT_TETHER_PORT = 1883;
 static const short    BUFLEN       = 1024;
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Tether PSN Agent starting..." << std::endl;
 
-  char buf[BUFLEN];
+  char char_buf[BUFLEN];
   std::vector<ProcessedTrackedObject*> processedObjects;
 
   std::string agentId;
@@ -88,8 +89,11 @@ int main(int argc, char *argv[]) {
   Output* rawTrackedObjectsPlug = agent.createOutput("trackedObjects");
   Output* processedTrackedObjectsPlug = agent.createOutput("processedTrackedObjects");
 
-  // UDP server (for receiving) and PSN Decoder
-  UdpServerSocket server(DEFAULT_PSN_PORT, TIMEOUT_MSEC);
+  // UDP socket (for receiving) and PSN Decoder
+  auto mcast_listen_socket = kissnet::udp_socket();
+	mcast_listen_socket.join(kissnet::endpoint(DEFAULT_PSN_MULTICAST_GROUP, DEFAULT_PSN_PORT));
+  kissnet::buffer<1024> recv_buff;
+
   ::psn::psn_decoder psn_decoder;
   uint8_t last_frame_id = 0 ;
   int skip_cout = 0 ;
@@ -97,24 +101,27 @@ int main(int argc, char *argv[]) {
     // Main loop
     while ( 1 ) 
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1) );
+        std::this_thread::sleep_for(std::chrono::milliseconds(16) );
 
         // printf("Waiting for data...");
         // fflush(stdout);
 
-        memset(buf, 0, BUFLEN);
+        memset(char_buf, 0, BUFLEN);
 
-        *buf = 0;
+        *char_buf = 0;
 
-        server.receiveData(buf, BUFLEN);
+        auto [received_bytes, status] = mcast_listen_socket.recv(recv_buff);
+        const auto from = mcast_listen_socket.get_recv_endpoint();
 
-        if (*buf) {
-            printf("Data: %s\n", buf);
+        std::memcpy(char_buf, recv_buff.data(), received_bytes);
+
+        if (*char_buf) {
+            printf("Data: %s\n", char_buf);
             // server.sendData(buf, strlen(buf));
 
             // std::cout << "As string: " << msg << " with size " << msg.size() << std::endl;
             
-            psn_decoder.decode( buf , BUFLEN ) ;
+            psn_decoder.decode( char_buf , BUFLEN ) ;
 
             // if ( psn_decoder.get_data().header.frame_id != last_frame_id )
             // {
