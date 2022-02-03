@@ -12,11 +12,15 @@
 #include "tether_agent.h"
 #include <msgpack.hpp>
 
-struct TrackedObject {
-  int id;
+struct Position {
   float x;
   float y;
-  MSGPACK_DEFINE_MAP(id, x, y);
+  MSGPACK_DEFINE_MAP(x, y);
+};
+struct TrackedObject {
+  int id;
+  Position position;
+  MSGPACK_DEFINE_MAP(id, position);
 };
 
 struct ProcessedTrackedObject {
@@ -141,10 +145,13 @@ int main(int argc, char *argv[]) {
                         if (ignoreZeroPoints && tracker.get_pos().x == 0 && tracker.get_pos().y == 0 && tracker.get_pos().z == 0) {
                           // ignore all-zero tracking points!
                         } else {
-                          TrackedObject t {
-                            tracker.get_id(),
+                          Position p {
                             tracker.get_pos().x,
                             tracker.get_pos().y,
+                          };
+                          TrackedObject t {
+                            tracker.get_id(),
+                            p
                           };          
 
                           // Make a buffer, pack data using messagepack, send via Tether Output Plug...
