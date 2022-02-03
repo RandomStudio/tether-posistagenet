@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   std::string tetherHost;
   bool ignoreZeroPoints;
 
-  //Args: AGENT_ID TETHER_HOST SHOULD_PROCESS ("true"/"false") MERGE_RADIUS
+  //Args: AGENT_ID TETHER_HOST SHOULD_PROCESS ("true"/"false")
   if (argc > 1) { // argv[0] is name of program
     if (argc != 4) {
       cout << "WARNING: unexpected number of arguments: " << argc << endl;
