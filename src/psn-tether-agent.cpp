@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
   // UDP socket (for receiving) and PSN Decoder
   auto mcast_listen_socket = kissnet::udp_socket();
-	mcast_listen_socket.join(kissnet::endpoint(DEFAULT_PSN_MULTICAST_GROUP, DEFAULT_PSN_PORT));
+	mcast_listen_socket.join(kissnet::endpoint(DEFAULT_PSN_MULTICAST_GROUP, DEFAULT_PSN_PORT), "192.168.11.201");
   kissnet::buffer<1024> recv_buff;
 
   ::psn::psn_decoder psn_decoder;
