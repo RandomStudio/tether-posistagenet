@@ -80,8 +80,7 @@ int main(int argc, char *argv[]) {
 
   agent.connect("tcp", tetherHost, DEFAULT_TETHER_PORT);
 
-  Output* rawTrackedObjectsPlug = agent.createOutput("trackedObjects");
-  Output* processedTrackedObjectsPlug = agent.createOutput("processedTrackedObjects");
+  Output* rawTrackedObjectsPlug = agent.createOutput("trackedPoints");
 
   // UDP socket (for receiving) and PSN Decoder
   auto mcast_listen_socket = kissnet::udp_socket();
