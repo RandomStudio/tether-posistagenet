@@ -57,20 +57,27 @@ int main(int argc, char *argv[]) {
 
   std::string agentId;
   std::string tetherHost;
+  std::string interfaceIp;
   bool ignoreZeroPoints;
+  bool verbose;
 
-  //Args: AGENT_ID TETHER_HOST SHOULD_PROCESS ("true"/"false")
+  //Args: AGENT_ID TETHER_HOST INTERFACE_IP IGNORE_ZERO_POINTS ("true"/"false") VERBOSE ("true"/"false")
   if (argc > 1) { // argv[0] is name of program
-    if (argc != 4) {
-      cout << "WARNING: unexpected number of arguments: " << argc << endl;
+    if (argc != 6) {
+      cout << "ERROR: unexpected number of arguments: " << argc << endl;
+      return -1;
     }
     agentId = argv[1];
     tetherHost = argv[2];
-    ignoreZeroPoints = std::strcmp(argv[3], "true") == 0 ? true : false;
+    interfaceIp = argv[3];
+    ignoreZeroPoints = std::strcmp(argv[4], "true") == 0 ? true : false;
+    verbose = std::strcmp(argv[5], "true") == 0 ? true : false;
   } else {
     agentId = DEFAULT_AGENT_ID;
     tetherHost = DEFAULT_TETHER_HOST;
+    interfaceIp = "";
     ignoreZeroPoints = false;
+    verbose = false;
   }
 
 
@@ -88,7 +95,7 @@ int main(int argc, char *argv[]) {
 
   // UDP socket (for receiving) and PSN Decoder
   auto mcast_listen_socket = kissnet::udp_socket();
-	mcast_listen_socket.join(kissnet::endpoint(DEFAULT_PSN_MULTICAST_GROUP, DEFAULT_PSN_PORT), "192.168.11.201");
+	mcast_listen_socket.join(kissnet::endpoint(DEFAULT_PSN_MULTICAST_GROUP, DEFAULT_PSN_PORT), interfaceIp);
   kissnet::buffer<1024> recv_buff;
 
   ::psn::psn_decoder psn_decoder;
@@ -113,59 +120,65 @@ int main(int argc, char *argv[]) {
         std::memcpy(char_buf, recv_buff.data(), received_bytes);
 
         if (*char_buf) {
+          if (verbose) {
             printf("Data: %s\n", char_buf);
+          }
             
-            psn_decoder.decode( char_buf , BUFLEN ) ;
+          psn_decoder.decode( char_buf , BUFLEN ) ;
 
-                last_frame_id = psn_decoder.get_data().header.frame_id ;
+          last_frame_id = psn_decoder.get_data().header.frame_id ;
 
-                const ::psn::tracker_map & recv_trackers = psn_decoder.get_data().trackers ;
-                
-                // if ( skip_cout++ % 20 == 0 )
-                // {
-                    ::std::cout << "--------------------PSN CLIENT-----------------" << ::std::endl ;
-                    ::std::cout << "System Name: " << psn_decoder.get_info().system_name << ::std::endl ;
-                    ::std::cout << "Frame Id: " << (int)last_frame_id << ::std::endl ;
-                    ::std::cout << "Frame Timestamp: " << psn_decoder.get_data().header.timestamp_usec << ::std::endl ;
-                    ::std::cout << "Tracker count: " << recv_trackers.size() << ::std::endl ;
+          const ::psn::tracker_map & recv_trackers = psn_decoder.get_data().trackers ;
 
-                    for ( auto it = recv_trackers.begin() ; it != recv_trackers.end() ; ++it )
-                    {
-                        const ::psn::tracker & tracker = it->second ;
+          if (verbose) {
+            ::std::cout << "--------------------PSN CLIENT-----------------" << ::std::endl ;
+            ::std::cout << "System Name: " << psn_decoder.get_info().system_name << ::std::endl ;
+            ::std::cout << "Frame Id: " << (int)last_frame_id << ::std::endl ;
+            ::std::cout << "Frame Timestamp: " << psn_decoder.get_data().header.timestamp_usec << ::std::endl ;
+            ::std::cout << "Tracker count: " << recv_trackers.size() << ::std::endl ;
+          }
+          
+          for ( auto it = recv_trackers.begin() ; it != recv_trackers.end() ; ++it ) {
+            const ::psn::tracker & tracker = it->second ;
 
-                        ::std::cout << "Tracker - id: " << tracker.get_id() << " | name: " << tracker.get_name() << ::std::endl ;
+            if (verbose) {
+              ::std::cout << "Tracker - id: " << tracker.get_id() << " | name: " << tracker.get_name() << ::std::endl ;
+            }
 
-                        if ( tracker.is_pos_set() )
-                            ::std::cout << "    pos: " << tracker.get_pos().x << ", " << 
-                                                          tracker.get_pos().y << ", " <<
-                                                          tracker.get_pos().z << std::endl ;
 
-                        // double x = static_cast<double>(tracker.get_pos().x);
+            if ( tracker.is_pos_set() ) {
+              if (verbose) {
+                ::std::cout << "    pos: " << tracker.get_pos().x << ", " << 
+                                              tracker.get_pos().y << ", " <<
+                                              tracker.get_pos().z << std::endl ;
+              }
 
-                        if (ignoreZeroPoints && tracker.get_pos().x == 0 && tracker.get_pos().y == 0 && tracker.get_pos().z == 0) {
-                          // ignore all-zero tracking points!
-                        } else {
-                          Position p {
-                            tracker.get_pos().x,
-                            tracker.get_pos().y,
-                          };
-                          TrackedObject t {
-                            tracker.get_id(),
-                            p
-                          };          
+              if (ignoreZeroPoints && tracker.get_pos().x == 0 && tracker.get_pos().y == 0 && tracker.get_pos().z == 0) {
+                // ignore all-zero tracking points!
+              } else {
+                Position p {
+                  tracker.get_pos().x,
+                  tracker.get_pos().y,
+                };
+                TrackedObject t {
+                  tracker.get_id(),
+                  p
+                };          
 
-                          // Make a buffer, pack data using messagepack, send via Tether Output Plug...
-                          {
-                            std::stringstream buffer;
-                            msgpack::pack(buffer, t);
-                            rawTrackedObjectsPlug->publish(buffer.str());
-                          }
+                // Make a buffer, pack data using messagepack, send via Tether Output Plug...
+                {
+                  std::stringstream buffer;
+                  msgpack::pack(buffer, t);
+                  rawTrackedObjectsPlug->publish(buffer.str());
+                }
+              }
+            }
+                                      
+          }
 
-                        }
-                                               
-                    }
-
-                    ::std::cout << "-----------------------------------------------" << ::std::endl ;
+          if (verbose) {
+            ::std::cout << "-----------------------------------------------" << ::std::endl ;
+          }
 
         } else {
             // printf(" nothing received \n");
