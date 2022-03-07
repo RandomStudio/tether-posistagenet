@@ -12,23 +12,19 @@
 #include "tether_agent.h"
 #include <msgpack.hpp>
 
-struct Position {
-  float x;
-  float y;
-  MSGPACK_DEFINE_MAP(x, y);
-};
 struct TrackedObject {
   int id;
-  Position position;
-  MSGPACK_DEFINE_MAP(id, position);
-};
-
-struct ProcessedTrackedObject {
-  int id;
   float x;
   float y;
-  int64_t lastTimeTracked;
+  MSGPACK_DEFINE_MAP(id, x, y);
 };
+
+// struct ProcessedTrackedObject {
+//   int id;
+//   float x;
+//   float y;
+//   int64_t lastTimeTracked;
+// };
 
 const int           DEFAULT_PSN_PORT  = 56565;
 const std::string     DEFAULT_PSN_MULTICAST_GROUP = "236.10.10.10";
@@ -45,7 +41,7 @@ using std::chrono::milliseconds;
 using std::chrono::system_clock;
 
 float getDistance (float x1, float y1, float x2, float y2) {
-  return std::sqrtf( std::pow((x2 - x1),2) + std::pow((y2 - y1),2) );
+  return std::sqrt( std::pow((x2 - x1),2) + std::pow((y2 - y1),2) );
 }
 
 int main(int argc, char *argv[]) {
@@ -53,7 +49,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Tether PSN Agent starting..." << std::endl;
 
   char char_buf[BUFLEN];
-  std::vector<ProcessedTrackedObject*> processedObjects;
+  // std::vector<ProcessedTrackedObject*> processedObjects;
 
   std::string agentId;
   std::string tetherHost;
@@ -137,6 +133,8 @@ int main(int argc, char *argv[]) {
             ::std::cout << "Frame Timestamp: " << psn_decoder.get_data().header.timestamp_usec << ::std::endl ;
             ::std::cout << "Tracker count: " << recv_trackers.size() << ::std::endl ;
           }
+
+          std::vector<TrackedObject> trackedObjects;
           
           for ( auto it = recv_trackers.begin() ; it != recv_trackers.end() ; ++it ) {
             const ::psn::tracker & tracker = it->second ;
@@ -156,24 +154,27 @@ int main(int argc, char *argv[]) {
               if (ignoreZeroPoints && tracker.get_pos().x == 0 && tracker.get_pos().y == 0 && tracker.get_pos().z == 0) {
                 // ignore all-zero tracking points!
               } else {
-                Position p {
-                  tracker.get_pos().x,
-                  tracker.get_pos().y,
-                };
                 TrackedObject t {
                   tracker.get_id(),
-                  p
-                };          
+                  tracker.get_pos().x,
+                  tracker.get_pos().y
+                };         
 
-                // Make a buffer, pack data using messagepack, send via Tether Output Plug...
-                {
-                  std::stringstream buffer;
-                  msgpack::pack(buffer, t);
-                  rawTrackedObjectsPlug->publish(buffer.str());
-                }
+                trackedObjects.push_back(t); 
+
               }
             }
                                       
+          }
+
+          if (trackedObjects.size() > 0) {
+            // Make a buffer, pack data using messagepack, send via Tether Output Plug...
+            {
+              std::stringstream buffer;
+              msgpack::pack(buffer, trackedObjects);
+              rawTrackedObjectsPlug->publish(buffer.str());
+            }
+
           }
 
           if (verbose) {
